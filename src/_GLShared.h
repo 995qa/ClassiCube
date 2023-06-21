@@ -176,6 +176,8 @@ void Gfx_DisableMipmaps(void) { }
 *-----------------------------------------------------State management----------------------------------------------------*
 *#########################################################################################################################*/
 static PackedCol gfx_clearColor;
+static cc_bool gfx_colorMask[4];
+
 void Gfx_SetFaceCulling(cc_bool enabled)   { gl_Toggle(GL_CULL_FACE); }
 void Gfx_SetAlphaBlending(cc_bool enabled) { gl_Toggle(GL_BLEND); }
 void Gfx_SetAlphaArgBlend(cc_bool enabled) { }
@@ -184,13 +186,16 @@ static void GL_ClearColor(PackedCol color) {
 	glClearColor(PackedCol_R(color) / 255.0f, PackedCol_G(color) / 255.0f,
 				 PackedCol_B(color) / 255.0f, PackedCol_A(color) / 255.0f);
 }
-void Gfx_ClearCol(PackedCol color) {
+void Gfx_ClearColor(PackedCol color) {
 	if (color == gfx_clearColor) return;
 	GL_ClearColor(color);
 	gfx_clearColor = color;
 }
 
 void Gfx_SetColWriteMask(cc_bool r, cc_bool g, cc_bool b, cc_bool a) {
+	gfx_colorMask[0] = r; gfx_colorMask[1] = g; 
+	gfx_colorMask[2] = b; gfx_colorMask[3] = a;
+
 	glColorMask(r, g, b, a);
 }
 
@@ -303,7 +308,13 @@ void Gfx_SetFpsLimit(cc_bool vsync, float minFrameMs) {
 }
 
 void Gfx_BeginFrame(void) { }
-void Gfx_Clear(void) { glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); }
+void Gfx_Clear2(GfxBuffers buffers) {
+	GLuint mask = 0;
+	if (buffers & GFX_BUFFER_COLOR) mask |= GL_COLOR_BUFFER_BIT;
+	if (buffers & GFX_BUFFER_DEPTH) mask |= GL_DEPTH_BUFFER_BIT;
+
+	glClear(mask);
+}
 
 void Gfx_EndFrame(void) {
 #ifndef CC_BUILD_GLMODERN

@@ -437,7 +437,9 @@ void Gfx_SetAlphaTest(cc_bool enabled) {
 
 void Gfx_DepthOnlyRendering(cc_bool depthOnly) {
 	cc_bool enabled = !depthOnly;
-	Gfx_SetColWriteMask(enabled, enabled, enabled, enabled);
+	glColorMask(gfx_colorMask[0] & enabled, gfx_colorMask[1] & enabled,
+				gfx_colorMask[2] & enabled, gfx_colorMask[3] & enabled);
+
 	if (enabled) { glEnable(GL_TEXTURE_2D); } else { glDisable(GL_TEXTURE_2D); }
 }
 

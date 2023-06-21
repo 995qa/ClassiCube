@@ -81,7 +81,7 @@ static void CreateD3D9Instance(void) {
 }
 
 static void FindCompatibleViewFormat(void) {
-	static const D3DFORMAT formats[4] = { D3DFMT_X8R8G8B8, D3DFMT_R8G8B8, D3DFMT_R5G6B5, D3DFMT_X1R5G5B5 };
+	static const D3DFORMAT formats[] = { D3DFMT_X8R8G8B8, D3DFMT_R8G8B8, D3DFMT_R5G6B5, D3DFMT_X1R5G5B5 };
 	cc_result res;
 	int i;
 
@@ -94,7 +94,7 @@ static void FindCompatibleViewFormat(void) {
 }
 
 static void FindCompatibleDepthFormat(void) {
-	static const D3DFORMAT formats[6] = { D3DFMT_D32, D3DFMT_D24X8, D3DFMT_D24S8, D3DFMT_D24X4S4, D3DFMT_D16, D3DFMT_D15S1 };
+	static const D3DFORMAT formats[] = { D3DFMT_D32, D3DFMT_D24X8, D3DFMT_D24S8, D3DFMT_D24X4S4, D3DFMT_D16, D3DFMT_D15S1 };
 	cc_result res;
 	int i;
 
@@ -414,6 +414,7 @@ static cc_bool gfx_alphaTesting, gfx_alphaBlending;
 static cc_bool gfx_depthTesting, gfx_depthWriting;
 static PackedCol gfx_clearColor, gfx_fogColor;
 static float gfx_fogEnd = -1.0f, gfx_fogDensity = -1.0f;
+static DWORD gfx_channels = 0x0F; /* all RGBA channels by default */
 
 /* NOTE: Although SetRenderState is okay to call on a lost device, it's also possible */
 /*   the context is lost because the device was never created to begin with!          */
@@ -493,11 +494,12 @@ void Gfx_SetAlphaArgBlend(cc_bool enabled) {
 	IDirect3DDevice9_SetTextureStageState(device, 0, D3DTSS_ALPHAOP, op);
 }
 
-void Gfx_ClearCol(PackedCol color) { gfx_clearColor = color; }
+void Gfx_ClearColor(PackedCol color) { gfx_clearColor = color; }
+
 void Gfx_SetColWriteMask(cc_bool r, cc_bool g, cc_bool b, cc_bool a) {
-	DWORD channels = (r ? 1u : 0u) | (g ? 2u : 0u) | (b ? 4u : 0u) | (a ? 8u : 0u);
+	gfx_channels = (r ? 1u : 0u) | (g ? 2u : 0u) | (b ? 4u : 0u) | (a ? 8u : 0u);
 	if (Gfx.LostContext) return;
-	IDirect3DDevice9_SetRenderState(device, D3DRS_COLORWRITEENABLE, channels);
+	IDirect3DDevice9_SetRenderState(device, D3DRS_COLORWRITEENABLE, gfx_channels);
 }
 
 void Gfx_SetDepthTest(cc_bool enabled) {
@@ -513,8 +515,7 @@ void Gfx_SetDepthWrite(cc_bool enabled) {
 }
 
 void Gfx_DepthOnlyRendering(cc_bool depthOnly) {
-	cc_bool enabled = !depthOnly;
-	Gfx_SetColWriteMask(enabled, enabled, enabled, enabled);
+	IDirect3DDevice9_SetRenderState(device, D3DRS_COLORWRITEENABLE, depthOnly ? 0 : gfx_channels);
 	if (depthOnly) IDirect3DDevice9_SetTexture(device, 0, NULL);
 
 	/* For when Direct3D9 device doesn't support D3DRS_COLORWRITEENABLE */
@@ -837,9 +838,13 @@ void Gfx_BeginFrame(void) {
 	IDirect3DDevice9_BeginScene(device);
 }
 
-void Gfx_Clear(void) {
-	DWORD flags = D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER;
-	cc_result res = IDirect3DDevice9_Clear(device, 0, NULL, flags, gfx_clearColor, 0.0f, 0);
+void Gfx_Clear2(GfxBuffers buffers) {
+	DWORD flags = 0;
+	cc_result res;
+	if (buffers & GFX_BUFFER_COLOR) flags |= D3DCLEAR_TARGET;
+	if (buffers & GFX_BUFFER_DEPTH) flags |= D3DCLEAR_ZBUFFER;
+
+	res = IDirect3DDevice9_Clear(device, 0, NULL, flags, gfx_clearColor, 0.0f, 0);
 	if (res) Logger_Abort2(res, "D3D9_Clear");
 }
 
